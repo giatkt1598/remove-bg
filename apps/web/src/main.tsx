@@ -15,6 +15,7 @@ const handles: Handle[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
 function App() {
   const stageRef = useRef<HTMLDivElement>(null);
   const objectUrlsRef = useRef<string[]>([]);
+  const transparentBackgroundRef = useRef(true);
   const [source, setSource] = useState<string>();
   const [result, setResult] = useState<string>();
   const [editorImage, setEditorImage] = useState<string>();
@@ -30,6 +31,8 @@ function App() {
   const [drag, setDrag] = useState<Drag>();
   const [pendingWipe, setPendingWipe] = useState(false);
   const [clipInset, setClipInset] = useState<number | null>(null);
+  const [switchToOriginalAfterClip, setSwitchToOriginalAfterClip] = useState(false);
+  const [transparentBackground, setTransparentBackground] = useState(true);
   useEffect(() => () => objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url)), []);
   useEffect(() => {
     const stage = stageRef.current;
@@ -79,8 +82,11 @@ function App() {
       return url;
     };
     setSource(createObjectUrl(selected));
+    transparentBackgroundRef.current = true;
+    setTransparentBackground(true);
     setPendingWipe(false);
     setClipInset(null);
+    setSwitchToOriginalAfterClip(false);
     setBusy(true);
     try {
       const formData = new FormData();
@@ -93,8 +99,10 @@ function App() {
       setResult(nextResult);
       setRotation(0);
       setFlipped(false);
-      await setEditorFromImage(nextResult);
-      setPendingWipe(true);
+      if (transparentBackgroundRef.current) {
+        await setEditorFromImage(nextResult);
+        setPendingWipe(true);
+      }
     } catch {
       setError('Background removal failed. Please try again.');
     } finally {
@@ -124,12 +132,39 @@ function App() {
     setFlipped(false);
     setPendingWipe(false);
     setClipInset(null);
+    setSwitchToOriginalAfterClip(false);
+    transparentBackgroundRef.current = true;
+    setTransparentBackground(true);
+  };
+  const changeTransparentBackground = async (checked: boolean) => {
+    transparentBackgroundRef.current = checked;
+    setTransparentBackground(checked);
+    setPendingWipe(false);
+    if (checked) {
+      if (!result) return;
+      await setEditorFromImage(result, rotation, flipped, crop);
+      setSwitchToOriginalAfterClip(false);
+      setClipInset(0);
+      requestAnimationFrame(() => requestAnimationFrame(() => setClipInset(100)));
+      return;
+    }
+    if (!source) return;
+    setSwitchToOriginalAfterClip(true);
+    setClipInset(100);
+    requestAnimationFrame(() => requestAnimationFrame(() => setClipInset(0)));
+  };
+  const completeClipTransition = () => {
+    setClipInset(null);
+    if (!switchToOriginalAfterClip || !source) return;
+    setSwitchToOriginalAfterClip(false);
+    void setEditorFromImage(source, rotation, flipped, crop);
   };
   const transform = async (nextRotation: number, nextFlipped: boolean) => {
-    if (!result || !crop) return;
+    const editableImage = transparentBackground ? result : source;
+    if (!editableImage || !crop) return;
     setRotation(nextRotation);
     setFlipped(nextFlipped);
-    await setEditorFromImage(result, nextRotation, nextFlipped, crop);
+    await setEditorFromImage(editableImage, nextRotation, nextFlipped, crop);
   };
   const startDrag = (event: React.PointerEvent, handle: Handle) => {
     if (!crop || !display) return;
@@ -247,7 +282,7 @@ function App() {
                           }}
                           draggable={false}
                           onTransitionEnd={(event) => {
-                            if (event.propertyName === 'clip-path') setClipInset(null);
+                            if (event.propertyName === 'clip-path') completeClipTransition();
                           }}
                         />
                       </div>
@@ -278,6 +313,17 @@ function App() {
             </div>
             <aside className="panel">
               <h3 className="text-lg font-bold">Adjust image</h3>
+              <label className="mt-5 flex cursor-pointer items-center gap-3 text-sm font-semibold text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={transparentBackground}
+                  onChange={(event) => void changeTransparentBackground(event.target.checked)}
+                />
+                Transparent background
+              </label>
+              <p className="mt-2 text-xs text-slate-400">
+                Turn this off to crop and resize the original image instead.
+              </p>
               <label className="control-label">Aspect ratio</label>
               <div className="grid grid-cols-3 gap-2">
                 {ratioOptions(imageSize).map((option) => (
