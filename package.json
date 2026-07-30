@@ -2,14 +2,29 @@
   "name": "remove-bg",
   "private": true,
   "version": "1.0.0",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "concurrently \"npm run dev --workspace @remove-bg/api\" \"npm run dev --workspace @remove-bg/web\"",
     "build": "npm run build --workspace @remove-bg/shared && npm run build --workspace @remove-bg/api && npm run build --workspace @remove-bg/web",
     "typecheck": "npm run build --workspace @remove-bg/shared && npm run typecheck --workspace @remove-bg/api && npm run typecheck --workspace @remove-bg/web",
     "test": "npm run test --workspace @remove-bg/api && npm run test --workspace @remove-bg/web",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "docker:up": "docker compose up --build",
     "docker:down": "docker compose down"
   },
-  "devDependencies": {"concurrently": "^9.1.2"}
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^9.1.2",
+    "eslint": "^10.8.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.8.0",
+    "prettier": "^3.9.6",
+    "typescript-eslint": "^8.65.0"
+  }
 }

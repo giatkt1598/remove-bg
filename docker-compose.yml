@@ -3,24 +3,30 @@ services:
     build: ./apps/processor
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
     volumes:
       - processor-model:/root/.u2net
   api:
-    build: {context: ., dockerfile: apps/api/Dockerfile}
+    build: { context: ., dockerfile: apps/api/Dockerfile }
     environment:
       PORT: 3001
       PROCESSOR_URL: http://processor:5000
       WEB_ORIGIN: http://localhost:8080
-    depends_on: {processor: {condition: service_healthy}}
-    ports: ["3001:3001"]
+    depends_on: { processor: { condition: service_healthy } }
+    ports: ['3001:3001']
   web:
-    build: {context: ., dockerfile: apps/web/Dockerfile}
+    build: { context: ., dockerfile: apps/web/Dockerfile }
     depends_on: [api]
-    ports: ["20800:80"]
+    ports: ['20800:80']
 
 volumes:
   processor-model:

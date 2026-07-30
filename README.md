@@ -47,12 +47,12 @@ docker compose up processor
 
 ## Architecture
 
-| Service | Responsibility |
-| --- | --- |
-| `apps/web` | React, Vite, TailwindCSS image-editing experience |
-| `apps/api` | Express upload validation and processor orchestration |
-| `apps/processor` | Python, `rembg`, and ONNX background-removal runtime |
-| `packages/shared` | Shared limits and API contracts |
+| Service           | Responsibility                                        |
+| ----------------- | ----------------------------------------------------- |
+| `apps/web`        | React, Vite, TailwindCSS image-editing experience     |
+| `apps/api`        | Express upload validation and processor orchestration |
+| `apps/processor`  | Python, `rembg`, and ONNX background-removal runtime  |
+| `packages/shared` | Shared limits and API contracts                       |
 
 The repository uses npm workspaces and Docker Compose. The public API validates image format and dimensions, while the processor stays on the internal Docker network.
 
