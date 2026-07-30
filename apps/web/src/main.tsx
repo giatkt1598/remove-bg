@@ -14,6 +14,7 @@ const handles: Handle[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
 
 function App() {
   const stageRef = useRef<HTMLDivElement>(null);
+  const objectUrlsRef = useRef<string[]>([]);
   const [source, setSource] = useState<string>();
   const [result, setResult] = useState<string>();
   const [editorImage, setEditorImage] = useState<string>();
@@ -27,13 +28,9 @@ function App() {
   const [rotation, setRotation] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [drag, setDrag] = useState<Drag>();
-  useEffect(
-    () => () => {
-      if (source) URL.revokeObjectURL(source);
-      if (result) URL.revokeObjectURL(result);
-    },
-    [source, result],
-  );
+  const [pendingWipe, setPendingWipe] = useState(false);
+  const [clipInset, setClipInset] = useState<number | null>(null);
+  useEffect(() => () => objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url)), []);
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
@@ -47,6 +44,15 @@ function App() {
     () => (imageSize ? fitContain(imageSize, stageSize) : undefined),
     [imageSize, stageSize],
   );
+  useEffect(() => {
+    if (!pendingWipe || !editorImage || !display || stageSize.width <= 1) return;
+    const startFrame = requestAnimationFrame(() => {
+      setPendingWipe(false);
+      setClipInset(0);
+      requestAnimationFrame(() => setClipInset(100));
+    });
+    return () => cancelAnimationFrame(startFrame);
+  }, [pendingWipe, editorImage, display, stageSize.width]);
   const setEditorFromImage = async (
     url: string,
     nextRotation = 0,
@@ -67,7 +73,14 @@ function App() {
       return setError('Please choose a JPG, PNG or WebP image.');
     if (selected.size > MAX_FILE_SIZE) return setError('Image must be 15 MB or smaller.');
     setFile(selected);
-    setSource(URL.createObjectURL(selected));
+    const createObjectUrl = (blob: Blob) => {
+      const url = URL.createObjectURL(blob);
+      objectUrlsRef.current.push(url);
+      return url;
+    };
+    setSource(createObjectUrl(selected));
+    setPendingWipe(false);
+    setClipInset(null);
     setBusy(true);
     try {
       const formData = new FormData();
@@ -76,11 +89,12 @@ function App() {
         responseType: 'blob',
         timeout: 130000,
       });
-      const nextResult = URL.createObjectURL(response.data);
+      const nextResult = createObjectUrl(response.data);
       setResult(nextResult);
       setRotation(0);
       setFlipped(false);
       await setEditorFromImage(nextResult);
+      setPendingWipe(true);
     } catch {
       setError('Background removal failed. Please try again.');
     } finally {
@@ -97,6 +111,8 @@ function App() {
     if (selected) void remove(selected);
   };
   const reset = () => {
+    objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    objectUrlsRef.current = [];
     setSource(undefined);
     setResult(undefined);
     setEditorImage(undefined);
@@ -106,6 +122,8 @@ function App() {
     setCrop(undefined);
     setRotation(0);
     setFlipped(false);
+    setPendingWipe(false);
+    setClipInset(null);
   };
   const transform = async (nextRotation: number, nextFlipped: boolean) => {
     if (!result || !crop) return;
@@ -198,7 +216,7 @@ function App() {
                   <>
                     <img
                       src={editorImage}
-                      className="editor-image"
+                      className="editor-image transparent-base"
                       style={{
                         left: display.left,
                         top: display.top,
@@ -207,6 +225,33 @@ function App() {
                       }}
                       draggable={false}
                     />
+                    {clipInset !== null && (
+                      <div
+                        className="original-wipe"
+                        style={{
+                          left: display.left,
+                          top: display.top,
+                          width: display.width,
+                          height: display.height,
+                        }}
+                      >
+                        <img
+                          src={source}
+                          className="editor-image original-wipe-image"
+                          style={{
+                            left: 0,
+                            top: 0,
+                            width: display.width,
+                            height: display.height,
+                            clipPath: `inset(0 ${clipInset}% 0 0)`,
+                          }}
+                          draggable={false}
+                          onTransitionEnd={(event) => {
+                            if (event.propertyName === 'clip-path') setClipInset(null);
+                          }}
+                        />
+                      </div>
+                    )}
                     {crop && (
                       <CropOverlay
                         crop={crop}
