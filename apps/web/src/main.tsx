@@ -311,6 +311,9 @@ function App() {
                 <input
                   className="input"
                   aria-label="Output width"
+                  type="number"
+                  min={MIN_CROP_SIZE}
+                  step="1"
                   inputMode="numeric"
                   value={crop ? Math.round(crop.width) : ''}
                   onChange={(event) => editOutput('width', event.target.value)}
@@ -318,6 +321,9 @@ function App() {
                 <input
                   className="input"
                   aria-label="Output height"
+                  type="number"
+                  min={MIN_CROP_SIZE}
+                  step="1"
                   inputMode="numeric"
                   value={crop ? Math.round(crop.height) : ''}
                   onChange={(event) => editOutput('height', event.target.value)}
