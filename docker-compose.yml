@@ -22,11 +22,13 @@ services:
       PROCESSOR_URL: http://processor:5000
       WEB_ORIGIN: http://localhost:8080
     depends_on: { processor: { condition: service_healthy } }
-    ports: ['3001:3001']
+    ports:
+      - '3001:3001'
   web:
     build: { context: ., dockerfile: apps/web/Dockerfile }
     depends_on: [api]
-    ports: ['20800:80']
+    ports:
+      - '20800:80'
 
 volumes:
   processor-model:
