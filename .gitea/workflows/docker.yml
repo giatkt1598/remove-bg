@@ -56,6 +56,13 @@ jobs:
           image_tag="${package_version}.build-${GITHUB_RUN_NUMBER}"
           tags=("${image_tag}")
 
+          echo "Application versions:"
+          echo "  root: ${package_version}"
+          echo "  api: $(node -p "require('./apps/api/package.json').version")"
+          echo "  web: $(node -p "require('./apps/web/package.json').version")"
+          echo "  processor: N/A (no package.json)"
+          echo "Building ${SERVICE} with image tag: ${image_tag}"
+
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             tags+=("${GITHUB_REF_NAME}")
           elif [[ "${GITHUB_REF_NAME}" == "main" ]]; then
