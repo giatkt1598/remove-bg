@@ -15,6 +15,18 @@ env:
 jobs:
   docker:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - service: api
+            dockerfile: apps/api/Dockerfile
+            context: .
+          - service: web
+            dockerfile: apps/web/Dockerfile
+            context: .
+          - service: processor
+            dockerfile: apps/processor/Dockerfile
+            context: apps/processor
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,6 +41,10 @@ jobs:
 
       - name: Build and publish images
         shell: bash
+        env:
+          SERVICE: ${{ matrix.service }}
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          BUILD_CONTEXT: ${{ matrix.context }}
         run: |
           set -euo pipefail
 
@@ -46,33 +62,16 @@ jobs:
             tags+=("latest")
           fi
 
-          for service in api web; do
-            dockerfile="apps/${service}/Dockerfile"
-            image="${image_prefix}-${service}"
+          image="${image_prefix}-${SERVICE}"
 
-            docker build -f "${dockerfile}" -t "${image}:${image_tag}" .
-
-            for tag in "${tags[@]:1}"; do
-              docker tag "${image}:${image_tag}" "${image}:${tag}"
-            done
-
-            if [[ "${GITHUB_EVENT_NAME}" != "pull_request" ]]; then
-              for tag in "${tags[@]}"; do
-                docker push "${image}:${tag}"
-              done
-            fi
-          done
-
-          processor_image="${image_prefix}-processor"
-          docker build -f apps/processor/Dockerfile \
-            -t "${processor_image}:${image_tag}" apps/processor
+          docker build -f "${DOCKERFILE}" -t "${image}:${image_tag}" "${BUILD_CONTEXT}"
 
           for tag in "${tags[@]:1}"; do
-            docker tag "${processor_image}:${image_tag}" "${processor_image}:${tag}"
+            docker tag "${image}:${image_tag}" "${image}:${tag}"
           done
 
           if [[ "${GITHUB_EVENT_NAME}" != "pull_request" ]]; then
             for tag in "${tags[@]}"; do
-              docker push "${processor_image}:${tag}"
+              docker push "${image}:${tag}"
             done
           fi
