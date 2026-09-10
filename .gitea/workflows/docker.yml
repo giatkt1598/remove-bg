@@ -1,0 +1,77 @@
+name: Build and publish Docker images
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+
+env:
+  REGISTRY: ${{ gitea.server_url }}
+  IMAGE_REPOSITORY: ${{ gitea.repository }}
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to container registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ gitea.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish images
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          registry="${REGISTRY#https://}"
+          registry="${registry#http://}"
+          repository="${IMAGE_REPOSITORY,,}"
+          image_prefix="${registry}/${repository}"
+          commit_tag="sha-${GITHUB_SHA::12}"
+          tags=("${commit_tag}")
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            tags+=("${GITHUB_REF_NAME}")
+          elif [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            tags+=("latest")
+          fi
+
+          for service in api web; do
+            dockerfile="apps/${service}/Dockerfile"
+            image="${image_prefix}-${service}"
+
+            docker build -f "${dockerfile}" -t "${image}:${commit_tag}" .
+
+            for tag in "${tags[@]:1}"; do
+              docker tag "${image}:${commit_tag}" "${image}:${tag}"
+            done
+
+            if [[ "${GITHUB_EVENT_NAME}" != "pull_request" ]]; then
+              for tag in "${tags[@]}"; do
+                docker push "${image}:${tag}"
+              done
+            fi
+          done
+
+          processor_image="${image_prefix}-processor"
+          docker build -f apps/processor/Dockerfile \
+            -t "${processor_image}:${commit_tag}" apps/processor
+
+          for tag in "${tags[@]:1}"; do
+            docker tag "${processor_image}:${commit_tag}" "${processor_image}:${tag}"
+          done
+
+          if [[ "${GITHUB_EVENT_NAME}" != "pull_request" ]]; then
+            for tag in "${tags[@]}"; do
+              docker push "${processor_image}:${tag}"
+            done
+          fi
