@@ -13,27 +13,6 @@ env:
   IMAGE_REPOSITORY: ${{ gitea.repository }}
 
 jobs:
-  versions:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Write application versions to job summary
-        if: always()
-        shell: bash
-        run: |
-          {
-            echo "# Application Versions"
-            echo ""
-            echo "| Application | Version |"
-            echo "|---|---|"
-            echo "| root | $(node -p "require('./package.json').version") |"
-            echo "| api | $(node -p "require('./apps/api/package.json').version") |"
-            echo "| web | $(node -p "require('./apps/web/package.json').version") |"
-            echo "| processor | $(node -p "require('./apps/processor/package.json').version") |"
-          } >> "$GITHUB_STEP_SUMMARY"
-
   docker:
     runs-on: ubuntu-latest
     strategy:
@@ -96,3 +75,33 @@ jobs:
               docker push "${image}:${tag}"
             done
           fi
+
+  complete:
+    needs: docker
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write build summary
+        if: always()
+        shell: bash
+        run: |
+          registry="${REGISTRY#https://}"
+          registry="${registry#http://}"
+          repository="${IMAGE_REPOSITORY,,}"
+          image_prefix="${registry}/${repository}"
+          package_version="$(node -p "require('./package.json').version")"
+          image_tag="${package_version}.build-${GITHUB_RUN_NUMBER}"
+
+          {
+            echo "# Build Complete"
+            echo ""
+            echo "Build status: ${{ needs.docker.result }}"
+            echo ""
+            echo "Built images:"
+            echo "${image_prefix}-api:${image_tag}"
+            echo "${image_prefix}-web:${image_tag}"
+            echo "${image_prefix}-processor:${image_tag}"
+          } >> "$GITHUB_STEP_SUMMARY"
