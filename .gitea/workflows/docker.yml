@@ -25,7 +25,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ gitea.actor }}
-          password: ${{ secrets.GIT_TOKEN }}
+          password: ${{ ev.GITEA_TOKEN }}
 
       - name: Build and publish images
         shell: bash
