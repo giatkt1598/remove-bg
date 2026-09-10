@@ -66,15 +66,16 @@ jobs:
 
           docker build -f "${DOCKERFILE}" -t "${image}:${image_tag}" "${BUILD_CONTEXT}"
 
+          if [[ "${GITHUB_EVENT_NAME}" != "pull_request" ]]; then
+            docker push "${image}:${image_tag}"
+          fi
+
           for tag in "${tags[@]:1}"; do
             docker tag "${image}:${image_tag}" "${image}:${tag}"
-          done
-
-          if [[ "${GITHUB_EVENT_NAME}" != "pull_request" ]]; then
-            for tag in "${tags[@]}"; do
+            if [[ "${GITHUB_EVENT_NAME}" != "pull_request" ]]; then
               docker push "${image}:${tag}"
-            done
-          fi
+            fi
+          done
 
   complete:
     needs: docker
