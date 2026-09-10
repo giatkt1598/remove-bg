@@ -54,13 +54,6 @@ jobs:
           image_prefix="${registry}/${repository}"
           package_version="$(node -p "require('./package.json').version")"
           image_tag="${package_version}.build-${GITHUB_RUN_NUMBER}"
-          tags=("${image_tag}")
-
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            tags+=("${GITHUB_REF_NAME}")
-          elif [[ "${GITHUB_REF_NAME}" == "main" ]]; then
-            tags+=("latest")
-          fi
 
           image="${image_prefix}-${SERVICE}"
 
@@ -70,13 +63,6 @@ jobs:
             docker push "${image}:${image_tag}"
           fi
 
-          for tag in "${tags[@]:1}"; do
-            docker tag "${image}:${image_tag}" "${image}:${tag}"
-            if [[ "${GITHUB_EVENT_NAME}" != "pull_request" ]]; then
-              docker push "${image}:${tag}"
-            fi
-          done
-
   complete:
     needs: docker
     if: always()
@@ -84,6 +70,42 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Log in to container registry
+        if: needs.docker.result == 'success' && github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ gitea.actor }}
+          password: ${{ secrets.TOKEN }}
+
+      - name: Promote version images
+        if: needs.docker.result == 'success' && github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          registry="${REGISTRY#https://}"
+          registry="${registry#http://}"
+          repository="${IMAGE_REPOSITORY,,}"
+          image_prefix="${registry}/${repository}"
+          package_version="$(node -p "require('./package.json').version")"
+          image_tag="${package_version}.build-${GITHUB_RUN_NUMBER}"
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            promote_tag="${GITHUB_REF_NAME}"
+          elif [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            promote_tag="latest"
+          else
+            exit 0
+          fi
+
+          for service in api web processor; do
+            image="${image_prefix}-${service}"
+            docker pull "${image}:${image_tag}"
+            docker tag "${image}:${image_tag}" "${image}:${promote_tag}"
+            docker push "${image}:${promote_tag}"
+          done
 
       - name: Write build summary
         if: always()
