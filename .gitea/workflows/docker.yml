@@ -91,7 +91,6 @@ jobs:
           registry="${REGISTRY#https://}"
           registry="${registry#http://}"
           repository="${IMAGE_REPOSITORY,,}"
-          image_prefix="${registry}/${repository}"
           package_version="$(node -p "require('./package.json').version")"
           image_tag="${package_version}.build-${GITHUB_RUN_NUMBER}"
 
@@ -103,11 +102,11 @@ jobs:
             if [[ "${{ needs.docker.result }}" == "success" ]]; then
               echo "Built images:"
               echo ""
-              echo " ✅${image_prefix}-api:**${image_tag}**"
+              echo " ✅${repository}-api:**${image_tag}**"
               echo ""
-              echo " ✅${image_prefix}-web:**${image_tag}**"
+              echo " ✅${repository}-web:**${image_tag}**"
               echo ""
-              echo " ✅${image_prefix}-processor:**${image_tag}**"
+              echo " ✅${repository}-processor:**${image_tag}**"
             else
               echo "Build failed or was cancelled. Image publishing may be incomplete."
             fi
