@@ -103,11 +103,11 @@ jobs:
             if [[ "${{ needs.docker.result }}" == "success" ]]; then
               echo "Built images:"
               echo ""
-              echo "${image_prefix}-api:**${image_tag}**"
+              echo " ✅${image_prefix}-api:**${image_tag}**"
               echo ""
-              echo "${image_prefix}-web:**${image_tag}**"
+              echo " ✅${image_prefix}-web:**${image_tag}**"
               echo ""
-              echo "${image_prefix}-processor:**${image_tag}**"
+              echo " ✅${image_prefix}-processor:**${image_tag}**"
             else
               echo "Build failed or was cancelled. Image publishing may be incomplete."
             fi
